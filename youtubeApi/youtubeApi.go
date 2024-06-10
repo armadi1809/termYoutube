@@ -18,11 +18,12 @@ type YoutubeApiClient struct {
 
 type videoItem struct {
 	Snippet struct {
-		Title string `json:"title"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
 	} `json:"snippet"`
 }
 
-type videosSearchRes struct {
+type VideosSearchRes struct {
 	Items []videoItem `json:"items"`
 }
 
@@ -31,7 +32,7 @@ func New() YoutubeApiClient {
 	return YoutubeApiClient{authKey: key, client: &http.Client{}}
 }
 
-func (c *YoutubeApiClient) Search(searchQuery string) {
+func (c *YoutubeApiClient) Search(searchQuery string) *VideosSearchRes {
 	res, err := c.client.Get(fmt.Sprintf(baseapi, searchQuery, c.authKey))
 	if err != nil {
 		log.Fatalf("unable to reach the youtube api: %s", err.Error())
@@ -42,11 +43,11 @@ func (c *YoutubeApiClient) Search(searchQuery string) {
 		log.Fatal("unbale to read response from the youtube api")
 	}
 
-	searchResult := &videosSearchRes{}
+	searchResult := &VideosSearchRes{}
 	if err = json.Unmarshal(body, searchResult); err != nil {
 		log.Fatalf("unable to parse json response from the youtube api: %v", err)
 	}
 
-	fmt.Println(searchResult)
+	return searchResult
 
 }

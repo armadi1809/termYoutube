@@ -9,23 +9,48 @@ import (
 	"strings"
 
 	youtubeapi "github.com/armadi1809/termYoutube/youtubeApi"
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
-type (
-	errMsg error
-)
+var baseStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder()).
+	BorderForeground(lipgloss.Color("240"))
+
+var columns = []table.Column{
+	{Title: "Title", Width: 60},
+	{Title: "Description", Width: 60},
+}
 
 type model struct {
 	textInput     textinput.Model
 	youtubeClient *youtubeapi.YoutubeApiClient
+	table         table.Model
 	err           error
 }
 
 func initialModel(c *youtubeapi.YoutubeApiClient) model {
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithFocused(false),
+		table.WithHeight(7),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	t.SetStyles(s)
 	ti := textinput.New()
-	ti.Placeholder = "Pikachu"
+	ti.Placeholder = "Song of the year"
 	ti.Focus()
 	ti.CharLimit = 156
 	ti.Width = 20
@@ -34,6 +59,7 @@ func initialModel(c *youtubeapi.YoutubeApiClient) model {
 		textInput:     ti,
 		youtubeClient: c,
 		err:           nil,
+		table:         t,
 	}
 }
 
@@ -48,28 +74,49 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			m.youtubeClient.Search(strings.ReplaceAll(m.textInput.Value(), " ", "+"))
+			searchRes := m.youtubeClient.Search(strings.ReplaceAll(m.textInput.Value(), " ", "+"))
+			newRows := []table.Row{}
+			for _, item := range searchRes.Items {
+				newRows = append(newRows, table.Row{item.Snippet.Title, item.Snippet.Description})
+			}
+			m.table.SetRows(newRows)
+			if m.table.Focused() {
+				m.table.Blur()
+				m.textInput.Focus()
+			} else {
+				m.table.Focus()
+				m.textInput.Blur()
+			}
 			return m, nil
-		case tea.KeyCtrlC, tea.KeyEsc:
+		case tea.KeyEsc:
+			if m.table.Focused() {
+				m.table.Blur()
+				m.textInput.Focus()
+			} else {
+				m.table.Focus()
+				m.textInput.Blur()
+			}
+
+		case tea.KeyCtrlC:
 			return m, tea.Quit
 		}
-
-	// We handle errors just like any other message
-	case errMsg:
-		m.err = msg
-		return m, nil
 	}
-
-	m.textInput, cmd = m.textInput.Update(msg)
+	if m.table.Focused() {
+		m.table, cmd = m.table.Update(msg)
+	} else {
+		m.textInput, cmd = m.textInput.Update(msg)
+	}
 	return m, cmd
 }
 
 func (m model) View() string {
 	return fmt.Sprintf(
-		"What do you want to listen to?\n\n%s\n\n%s",
+		"\n%s\n%s\n\n%s\n\n%s\n",
+		"What do you want to listen to?",
 		m.textInput.View(),
 		"(esc to quit)",
-	) + "\n"
+		baseStyle.Render(m.table.View()),
+	)
 }
 
 func Start(apiClient *youtubeapi.YoutubeApiClient) {
