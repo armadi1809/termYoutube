@@ -6,6 +6,7 @@ package ui
 import (
 	"fmt"
 	"log"
+	"os/exec"
 	"strings"
 
 	youtubeapi "github.com/armadi1809/termYoutube/youtubeApi"
@@ -22,6 +23,7 @@ var baseStyle = lipgloss.NewStyle().
 var columns = []table.Column{
 	{Title: "Title", Width: 60},
 	{Title: "Description", Width: 60},
+	{Title: "Video Id", Width: 0},
 }
 
 type model struct {
@@ -77,16 +79,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			searchRes := m.youtubeClient.Search(strings.ReplaceAll(m.textInput.Value(), " ", "+"))
 			newRows := []table.Row{}
 			for _, item := range searchRes.Items {
-				newRows = append(newRows, table.Row{item.Snippet.Title, item.Snippet.Description})
+				newRows = append(newRows, table.Row{item.Snippet.Title, item.Snippet.Description, item.Id.VideoId})
 			}
 			m.table.SetRows(newRows)
 			if m.table.Focused() {
-				m.table.Blur()
-				m.textInput.Focus()
+				return m, tea.ExecProcess(exec.Command("mpv", "--no-video", "https://www.youtube.com/watch?v="+m.table.SelectedRow()[2]), nil)
 			} else {
 				m.table.Focus()
 				m.textInput.Blur()
 			}
+
 			return m, nil
 		case tea.KeyEsc:
 			if m.table.Focused() {

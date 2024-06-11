@@ -17,6 +17,9 @@ type YoutubeApiClient struct {
 }
 
 type videoItem struct {
+	Id struct {
+		VideoId string `json:"videoId"`
+	} `json:"id"`
 	Snippet struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
